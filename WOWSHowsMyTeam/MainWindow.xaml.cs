@@ -90,7 +90,7 @@ namespace WOWSHowsMyTeam
 
             if (usefulData.Length == 0)
             {
-                Hide = "是";
+                Hide = "Y";
                 return;
             }
 
