@@ -5,6 +5,8 @@ using System.Windows;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.IO;
+using System.Windows.Threading;
+using System.Threading.Tasks;
 
 namespace WOWSHowsMyTeam
 {
@@ -13,46 +15,112 @@ namespace WOWSHowsMyTeam
     /// </summary>
     public partial class MainWindow : Window
     {
+        enum ProgramStatus
+        {
+            Standby,
+            Loading,
+            Loaded
+        }
+
+        #region private property field
+        private ProgramStatus Status;
+        private string arenaInfoFile = "tempArenaInfo.json";
+        DispatcherTimer Timer = new DispatcherTimer();
+
+
+        List<PlayerData> OwnTeam = new List<PlayerData>();
+        List<PlayerData> EnemyTeam = new List<PlayerData>();
+        #endregion private property field
 
         public MainWindow()
         {
             InitializeComponent();
-        }
+            UpdateProgramStatus(ProgramStatus.Standby);
+            Timer.Interval = new TimeSpan(0, 0, 5);
+            Timer.Tick += Timer_Tick;
+            Timer.Start();
 
-        private void CheckData()
-        {
-            if (File.Exists("tempArenaInfo.json"))
-            {
-                string content = File.ReadAllText("tempArenaInfo.json");
-                TempLeaderBoardRoot root = JsonConvert.DeserializeObject<TempLeaderBoardRoot>(content);
-                updateView(root);
-            }
+            dataGrid.ItemsSource = OwnTeam;
+            dataGridEnemy.ItemsSource = EnemyTeam;
         }
+        
 
-        private void updateView(TempLeaderBoardRoot root)
-        {
-            PlayerDatas pd = new PlayerDatas(root.vehicles, true);
-            PlayerDatas pdE = new PlayerDatas(root.vehicles, false);
-            
-            dataGrid.ItemsSource = pd.OrderByDescending(t => t.requestSortIndex()) ;
-            dataGridEnemy.ItemsSource = pdE.OrderByDescending(t => t.requestSortIndex());
-        }
-
-        private void button_Click(object sender, RoutedEventArgs e)
+        private void Timer_Tick(object sender, EventArgs e)
         {
             CheckData();
         }
+
+        private void UpdateProgramStatus(ProgramStatus newStatus)
+        {
+            Status = newStatus;
+            textBox.Text = Status.ToString();
+        }
+
+        private async void CheckData()
+        {
+            if (Status == ProgramStatus.Loading ||
+                Status == ProgramStatus.Standby && !File.Exists(arenaInfoFile) ||
+                Status == ProgramStatus.Loaded && File.Exists(arenaInfoFile))
+            {
+                return;
+            }
+
+
+            if (Status == ProgramStatus.Loaded && !File.Exists(arenaInfoFile))
+            {
+                UpdateProgramStatus(ProgramStatus.Standby);
+                return;
+            }
+
+            if (Status == ProgramStatus.Standby && File.Exists(arenaInfoFile))
+            {
+                UpdateProgramStatus(ProgramStatus.Loading);
+                await UpdateData();
+            }
+        }
+
+        private async Task UpdateData()
+        {
+            if (File.Exists(arenaInfoFile))
+            {
+                string content = File.ReadAllText("tempArenaInfo.json");
+                TempLeaderBoardRoot root = JsonConvert.DeserializeObject<TempLeaderBoardRoot>(content);
+                Task<PlayerDatas> ownTeamUpdate = new Task<PlayerDatas>(() => downloadData(root, true));
+                Task<PlayerDatas> enemyTeamUpdate = new Task<PlayerDatas>(() => downloadData(root, false));
+                Task[] alltask = { ownTeamUpdate, enemyTeamUpdate };
+                ownTeamUpdate.Start();
+                enemyTeamUpdate.Start();
+                await Task.WhenAll(alltask);
+                updateView(ownTeamUpdate.Result, enemyTeamUpdate.Result);
+                UpdateProgramStatus(ProgramStatus.Loaded);
+            }
+            else
+            {
+                UpdateProgramStatus(ProgramStatus.Standby);
+            }
+        }
+
+        private PlayerDatas downloadData(TempLeaderBoardRoot root, bool teammate)
+        {
+            return new PlayerDatas(root.vehicles, teammate);
+        }
+
+        private void updateView(PlayerDatas ownteam, PlayerDatas enemyteam)
+        {
+            dataGrid.ItemsSource = ownteam.OrderByDescending(t => t.requestSortIndex());
+            dataGridEnemy.ItemsSource = enemyteam.OrderByDescending(t => t.requestSortIndex()).ToList();
+        }
     }
 
-    public class PlayerDatas:List<PlayerData>
+    public class PlayerDatas : List<PlayerData>
     {
         public PlayerDatas(List<Vehicle> Vehicles, bool ownTeam)
         {
             foreach (Vehicle v in Vehicles)
             {
                 if (v.relation < 2 && ownTeam
-                    ||v.relation == 2 && !ownTeam)
-                { 
+                    || v.relation == 2 && !ownTeam)
+                {
                     PlayerData p = new PlayerData(v);
                     this.Add(p);
                 }
@@ -61,7 +129,7 @@ namespace WOWSHowsMyTeam
 
     }
 
-    public class PlayerData 
+    public class PlayerData
     {
         public PlayerData(Vehicle v)
         {
@@ -95,10 +163,10 @@ namespace WOWSHowsMyTeam
             }
 
             dynamic o = JObject.Parse(usefulData);
-            BattleCount = Convert.ToInt32( o.pvp.battles );
-            Wins = Convert.ToInt32( o.pvp.wins );
-            Damage = Convert.ToInt32( o.pvp.damage_dealt );
-            Exp = Convert.ToInt32( o.pvp.xp );
+            BattleCount = Convert.ToInt32(o.pvp.battles);
+            Wins = Convert.ToInt32(o.pvp.wins);
+            Damage = Convert.ToInt32(o.pvp.damage_dealt);
+            Exp = Convert.ToInt32(o.pvp.xp);
         }
 
         public int requestSortIndex()
