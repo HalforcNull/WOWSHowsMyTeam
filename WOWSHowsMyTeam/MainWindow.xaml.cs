@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using System.IO;
 using System.Windows.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace WOWSHowsMyTeam
 {
@@ -17,6 +18,7 @@ namespace WOWSHowsMyTeam
     {
         enum ProgramStatus
         {
+            NoGameDetected,
             Standby,
             Loading,
             Loaded
@@ -26,28 +28,48 @@ namespace WOWSHowsMyTeam
         private ProgramStatus Status;
         private string arenaInfoFile = "tempArenaInfo.json";
         DispatcherTimer Timer = new DispatcherTimer();
-
-
-        List<PlayerData> OwnTeam = new List<PlayerData>();
-        List<PlayerData> EnemyTeam = new List<PlayerData>();
+        
         #endregion private property field
 
         public MainWindow()
         {
             InitializeComponent();
+            PersonalInitialize();
+        }
+
+        private void PersonalInitialize()
+        {
             UpdateProgramStatus(ProgramStatus.Standby);
             Timer.Interval = new TimeSpan(0, 0, 5);
             Timer.Tick += Timer_Tick;
             Timer.Start();
-
-            dataGrid.ItemsSource = OwnTeam;
-            dataGridEnemy.ItemsSource = EnemyTeam;
+            
         }
-        
 
         private void Timer_Tick(object sender, EventArgs e)
         {
-            CheckData();
+            if(ClientStarted())
+            {
+                arenaInfoFile = getArenaInfoPath();
+                CheckData();
+            }
+            else
+            {
+                UpdateProgramStatus(ProgramStatus.NoGameDetected);
+            }
+            
+        }
+
+        private string getArenaInfoPath()
+        {
+            Process gameProcess = Process.GetProcessesByName("WorldOfWarships").FirstOrDefault();
+            string exeFilePath = gameProcess.MainModule.FileName;
+            return exeFilePath.Substring(0, exeFilePath.LastIndexOf('\\'))+ @"\replays\tempArenaInfo.json";
+        }
+
+        private bool ClientStarted()
+        {
+            return Process.GetProcessesByName("WorldOfWarships").Length != 0;
         }
 
         private void UpdateProgramStatus(ProgramStatus newStatus)
@@ -83,7 +105,7 @@ namespace WOWSHowsMyTeam
         {
             if (File.Exists(arenaInfoFile))
             {
-                string content = File.ReadAllText("tempArenaInfo.json");
+                string content = File.ReadAllText(arenaInfoFile);
                 TempLeaderBoardRoot root = JsonConvert.DeserializeObject<TempLeaderBoardRoot>(content);
                 Task<PlayerDatas> ownTeamUpdate = new Task<PlayerDatas>(() => downloadData(root, true));
                 Task<PlayerDatas> enemyTeamUpdate = new Task<PlayerDatas>(() => downloadData(root, false));
@@ -184,9 +206,9 @@ namespace WOWSHowsMyTeam
         private int Damage { get; set; }
         private int Exp { get; set; }
         private int SortIndex { get; set; }
-        public int WinRate { get { return Wins * 100 / BattleCount; } }
-        public int ExpAverage { get { return Exp / BattleCount; } }
-        public int DmgAverage { get { return Damage / BattleCount; } }
+        public int WinRate { get { if (BattleCount != 0) return Wins * 100 / BattleCount; else return 0; } }
+        public int ExpAverage { get { if (BattleCount != 0) return Exp / BattleCount; else return 0; } }
+        public int DmgAverage { get { if (BattleCount != 0) return Damage / BattleCount; else return 0; } }
         private int Team { get; set; }
     }
 
