@@ -161,13 +161,20 @@ namespace WOWSHowsMyTeam
             SortIndex = ShipMaster.Instance.getSortingbyID(ShipId);
             Team = v.relation;
             PlayerId = queryId();
-            fillShipMastery();
+            if(!String.IsNullOrEmpty(PlayerId) )
+            {
+                fillShipMastery();
+            }
         }
 
         private string queryId()
         {
             string response = HttpManager.GetJsonPlayerIDQuery(Name);
             dynamic o = JObject.Parse(response);
+            if(o.data.First == null)
+            {
+                return "";
+            }
             return o.data.First.account_id.ToString();
         }
 
