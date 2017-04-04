@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WOWSHowsMyTeam"
         mc:Ignorable="d"
-        Title="MainWindow" Height="581.512" Width="1452.381">
+        Title="水表速查" Height="581.512" Width="1452.381">
     <Window.Resources>
     </Window.Resources>
     <Grid>
