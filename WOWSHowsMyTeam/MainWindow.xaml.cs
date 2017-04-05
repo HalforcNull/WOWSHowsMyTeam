@@ -28,7 +28,7 @@ namespace WOWSHowsMyTeam
         private ProgramStatus Status;
         private string arenaInfoFile = "tempArenaInfo.json";
         DispatcherTimer Timer = new DispatcherTimer();
-        
+
         #endregion private property field
 
         public MainWindow()
@@ -43,28 +43,31 @@ namespace WOWSHowsMyTeam
             Timer.Interval = new TimeSpan(0, 0, 5);
             Timer.Tick += Timer_Tick;
             Timer.Start();
-            
+
         }
 
         private void Timer_Tick(object sender, EventArgs e)
         {
-            if(ClientStarted())
+            if (ClientStarted())
             {
                 arenaInfoFile = getArenaInfoPath();
-                CheckData();
+                if (File.Exists(arenaInfoFile))
+                {
+                    CheckData();
+                }
             }
             else
             {
                 UpdateProgramStatus(ProgramStatus.NoGameDetected);
             }
-            
+
         }
 
         private string getArenaInfoPath()
         {
             Process gameProcess = Process.GetProcessesByName("WorldOfWarships").FirstOrDefault();
             string exeFilePath = gameProcess.MainModule.FileName;
-            return exeFilePath.Substring(0, exeFilePath.LastIndexOf('\\'))+ @"\replays\tempArenaInfo.json";
+            return exeFilePath.Substring(0, exeFilePath.LastIndexOf('\\')) + @"\replays\tempArenaInfo.json";
         }
 
         private bool ClientStarted()
@@ -161,7 +164,7 @@ namespace WOWSHowsMyTeam
             SortIndex = ShipMaster.Instance.getSortingbyID(ShipId);
             Team = v.relation;
             PlayerId = queryId();
-            if(!String.IsNullOrEmpty(PlayerId) )
+            if (!String.IsNullOrEmpty(PlayerId))
             {
                 fillShipMastery();
             }
@@ -171,7 +174,7 @@ namespace WOWSHowsMyTeam
         {
             string response = HttpManager.GetJsonPlayerIDQuery(Name);
             dynamic o = JObject.Parse(response);
-            if(o.data.First == null)
+            if (o.data.First == null)
             {
                 return "";
             }
